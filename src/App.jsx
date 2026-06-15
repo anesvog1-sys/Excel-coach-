@@ -52,7 +52,7 @@ export default function App() {
           "X-Title": "ExcelCoach",
         },
         body: JSON.stringify({
-          model: "mistralai/mistral-7b-instruct:free",
+          model: "mistralai/mistral-small-3.1-24b-instruct:free",
           max_tokens: 800,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
