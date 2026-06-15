@@ -52,7 +52,7 @@ export default function App() {
           "X-Title": "ExcelCoach",
         },
         body: JSON.stringify({
-          model: "meta-llama/llama-4-scout:free",
+          model: "meta-llama/llama-4-scout",
           max_tokens: 800,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
