@@ -1,4 +1,4 @@
-dj import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const SYSTEM_PROMPT = `You are ExcelCoach, a friendly Excel tutor. Teach Excel clearly with practical examples and step-by-step instructions.`;
 
