@@ -89,14 +89,10 @@ export default function App() {
     setLoading(true);
 
     try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`,
-"HTTP-Referer": "https://excel-coach.vercel.app",
-        },
-        body: JSON.stringify({
+        headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ messages: [...], apiKey }),
           model: "meta-llama/llama-3-70b-instruct:free",
           max_tokens: 1000,
           messages: [
