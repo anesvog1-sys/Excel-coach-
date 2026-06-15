@@ -15,7 +15,8 @@ const TOPICS = [
 
 export default function App() {
   const [step, setStep] = useState("key");
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(localStorage.getItem("or_key") || "");
+const [step, setStep] = useState(localStorage.getItem("or_key") ? "chat" : "key");
   const [keyInput, setKeyInput] = useState("");
   const [messages, setMessages] = useState([
     { role: "assistant", content: "👋 Hi! I'm ExcelCoach — your free AI Excel tutor!\n\nAsk me anything or tap a topic below to start learning!" },
@@ -32,6 +33,7 @@ export default function App() {
   function handleSetKey() {
     const k = keyInput.trim();
     if (k.length < 10) { setError("Please enter a valid API key"); return; }
+    localStorage.setItem("or_key", k);
     setApiKey(k);
     setStep("chat");
     setError("");
