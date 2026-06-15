@@ -1,345 +1,262 @@
 import { useState, useRef, useEffect } from "react";
 
-const SYSTEM_PROMPT = `You are ExcelCoach, a friendly and expert Excel tutor. Your job is to teach Excel in a clear, practical way.
+const SYSTEM_PROMPT = `You are ExcelCoach, a friendly Excel tutor. Teach Excel clearly with practical examples, real cell references, and step-by-step instructions.`;
 
-You help users with:
-- Excel formulas and functions (SUM, VLOOKUP, INDEX/MATCH, IF, COUNTIF, SUMIF, etc.)
-- Data analysis techniques (pivot tables, charts, conditional formatting)
-- Shortcuts and productivity tips
-- Troubleshooting formula errors (#VALUE!, #REF!, #DIV/0!, etc.)
-- Best practices for spreadsheet design
-
-Response style:
-- Be concise but thorough. Use examples with real cell references (e.g., =SUM(A1:A10)).
-- When showing formulas, wrap them in backticks like =VLOOKUP(A2,B:C,2,0)
-- Use numbered steps for multi-step processes
-- Always offer a quick example when explaining a formula
-- End with a tip or a follow-up question to keep learning going
-
-Keep responses focused on Excel.`;
-
-const LESSON_TOPICS = [
-  { icon: "∑", label: "SUM & Basic Math", prompt: "Teach me the basic math formulas in Excel: SUM, AVERAGE, MIN, MAX with examples." },
+const TOPICS = [
+  { icon: "∑", label: "SUM & Math", prompt: "Teach me SUM, AVERAGE, MIN, MAX in Excel with examples." },
   { icon: "🔍", label: "VLOOKUP", prompt: "Explain VLOOKUP step by step with a practical example." },
-  { icon: "🎯", label: "IF Statements", prompt: "How do IF statements work in Excel? Show me simple and nested IF examples." },
-  { icon: "📊", label: "Pivot Tables", prompt: "How do I create a Pivot Table in Excel? Walk me through it." },
-  { icon: "⚡", label: "Shortcuts", prompt: "What are the most useful Excel keyboard shortcuts I should know?" },
-  { icon: "🛠", label: "Fix Errors", prompt: "Explain common Excel errors like #VALUE!, #REF!, #DIV/0! and how to fix them." },
-  { icon: "🔗", label: "INDEX/MATCH", prompt: "Teach me INDEX/MATCH and why it's better than VLOOKUP." },
-  { icon: "🎨", label: "Conditional Format", prompt: "How do I use Conditional Formatting to highlight data in Excel?" },
+  { icon: "🎯", label: "IF Statements", prompt: "How do IF statements work in Excel? Show me examples." },
+  { icon: "📊", label: "Pivot Tables", prompt: "How do I create a Pivot Table in Excel?" },
+  { icon: "⚡", label: "Shortcuts", prompt: "What are the most useful Excel keyboard shortcuts?" },
+  { icon: "🛠", label: "Fix Errors", prompt: "Explain Excel errors like #VALUE! #REF! #DIV/0! and fixes." },
+  { icon: "🔗", label: "INDEX/MATCH", prompt: "Teach me INDEX/MATCH and why it beats VLOOKUP." },
+  { icon: "🎨", label: "Conditional Format", prompt: "How do I use Conditional Formatting in Excel?" },
 ];
 
-function formatMessage(text) {
-  const lines = text.split("\n");
-  return lines.map((line, i) => {
-    const parts = line.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
-    const formatted = parts.map((part, j) => {
-      if (part.startsWith("`") && part.endsWith("`")) {
-        return (
-          <code key={j} style={{
-            background: "#1e3a5f", color: "#7dd3fc",
-            padding: "2px 7px", borderRadius: "4px",
-            fontFamily: "'Courier New', monospace",
-            fontSize: "0.88em", fontWeight: 600,
-          }}>{part.slice(1, -1)}</code>
-        );
-      }
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={j} style={{ color: "#e2e8f0" }}>{part.slice(2, -2)}</strong>;
-      }
-      return part;
-    });
-    return <span key={i}>{formatted}{i < lines.length - 1 ? <br /> : null}</span>;
-  });
-}
-
 export default function App() {
+  const [step, setStep] = useState("key");
   const [apiKey, setApiKey] = useState("");
-  const [apiKeySet, setApiKeySet] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [keyInput, setKeyInput] = useState("");
   const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content: "👋 Hey there! I'm ExcelCoach — your personal Excel tutor.\n\nAsk me anything about Excel formulas, functions, pivot tables, shortcuts, and more. Or pick a lesson topic below to get started!",
-    },
+    { role: "assistant", content: "👋 Hi! I'm ExcelCoach — your free AI Excel tutor!\n\nAsk me anything or tap a topic below to start learning!" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const bottomRef = useRef(null);
-  const inputRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  function handleSetApiKey() {
-    if (apiKeyInput.trim().startsWith("sk-or-")) {
-      setApiKey(apiKeyInput.trim());
-      setApiKeySet(true);
-    } else {
-      alert("Invalid API key. It should start with gsk_");
-    }
+  function handleSetKey() {
+    const k = keyInput.trim();
+    if (k.length < 10) { setError("Please enter a valid API key"); return; }
+    setApiKey(k);
+    setStep("chat");
+    setError("");
   }
 
-  async function sendMessage(userText) {
-    if (!userText.trim() || loading) return;
-    const newMessages = [...messages, { role: "user", content: userText }];
-    setMessages(newMessages);
+  async function sendMessage(text) {
+    if (!text.trim() || loading) return;
+    const updated = [...messages, { role: "user", content: text }];
+    setMessages(updated);
     setInput("");
     setLoading(true);
+    setError("");
 
     try {
-      const response = await fetch("/api/chat", {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ messages: [...], apiKey }),
-          model: "meta-llama/llama-3-70b-instruct:free",
-          max_tokens: 1000,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://excelcoach.vercel.app",
+          "X-Title": "ExcelCoach",
+        },
+        body: JSON.stringify({
+          model: "mistralai/mistral-7b-instruct:free",
+          max_tokens: 800,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
-            ...newMessages.map((m) => ({ role: m.role, content: m.content })),
+            ...updated,
           ],
         }),
       });
 
-      const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content || "Sorry, I couldn't get a response.";
-      setMessages([...newMessages, { role: "assistant", content: reply }]);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const reply = data.choices?.[0]?.message?.content || "No response received.";
+      setMessages([...updated, { role: "assistant", content: reply }]);
     } catch (err) {
-      setMessages([...newMessages, { role: "assistant", content: "⚠️ Something went wrong. Check your API key and try again." }]);
+      setError("Error: " + err.message);
+      setMessages([...updated, { role: "assistant", content: "⚠️ " + err.message }]);
     } finally {
       setLoading(false);
-      inputRef.current?.focus();
     }
   }
 
-  function handleKeyDown(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(input);
-    }
-  }
+  const s = {
+    page: {
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #0f172a, #0c2340)",
+      fontFamily: "sans-serif",
+      display: "flex", flexDirection: "column", alignItems: "center",
+    },
+    card: {
+      background: "rgba(255,255,255,0.05)",
+      border: "1px solid rgba(255,255,255,0.1)",
+      borderRadius: 20, padding: "40px 28px",
+      maxWidth: 400, width: "100%", textAlign: "center", margin: "auto",
+    },
+    input: {
+      width: "100%", padding: "12px 14px",
+      background: "rgba(255,255,255,0.07)",
+      border: "1px solid rgba(255,255,255,0.15)",
+      borderRadius: 10, color: "#f1f5f9",
+      fontSize: "0.9rem", outline: "none",
+      boxSizing: "border-box", marginBottom: 10,
+    },
+    btn: {
+      width: "100%", padding: 12,
+      background: "linear-gradient(135deg, #217346, #2ecc71)",
+      border: "none", borderRadius: 10,
+      color: "#fff", fontSize: "0.95rem",
+      fontWeight: 600, cursor: "pointer",
+    },
+  };
 
-  if (!apiKeySet) {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #0f172a 0%, #0c2340 60%, #0f172a 100%)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "'Inter', 'Segoe UI', sans-serif", padding: 20,
-      }}>
-        <div style={{
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 20, padding: "40px 32px",
-          maxWidth: 420, width: "100%", textAlign: "center",
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📗</div>
-          <h1 style={{ color: "#f1f5f9", fontSize: "1.5rem", margin: "0 0 8px", fontWeight: 700 }}>
-            ExcelCoach
-          </h1>
-          <p style={{ color: "#64748b", fontSize: "0.9rem", margin: "0 0 28px" }}>
-            Enter your Groq API key to start learning Excel with AI — free!
-          </p>
-          <input
-            type="password"
-            placeholder="gsk_..."
-            value={apiKeyInput}
-            onChange={e => setApiKeyInput(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSetApiKey()}
-            style={{
-              width: "100%", padding: "12px 16px",
-              background: "rgba(255,255,255,0.07)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 10, color: "#f1f5f9",
-              fontSize: "0.9rem", outline: "none",
-              boxSizing: "border-box", marginBottom: 12,
-              fontFamily: "monospace",
-            }}
-          />
-          <button onClick={handleSetApiKey} style={{
-            width: "100%", padding: "12px",
-            background: "linear-gradient(135deg, #217346, #2ecc71)",
-            border: "none", borderRadius: 10,
-            color: "#fff", fontSize: "0.95rem",
-            fontWeight: 600, cursor: "pointer",
-          }}>
-            Start Learning →
-          </button>
-          <p style={{ color: "#475569", fontSize: "0.75rem", marginTop: 16 }}>
-            Get a free API key at{" "}
-            <a href="https://console.groq.com" target="_blank" rel="noreferrer"
-              style={{ color: "#4ade80" }}>console.groq.com</a>
-          </p>
-        </div>
+  if (step === "key") return (
+    <div style={s.page}>
+      <div style={s.card}>
+        <div style={{ fontSize: 50, marginBottom: 14 }}>📗</div>
+        <h1 style={{ color: "#f1f5f9", margin: "0 0 6px" }}>ExcelCoach</h1>
+        <p style={{ color: "#64748b", fontSize: "0.85rem", margin: "0 0 24px" }}>
+          Free AI Excel tutor — powered by OpenRouter
+        </p>
+        <input
+          style={s.input}
+          type="password"
+          placeholder="Paste your OpenRouter key (sk-or-...)"
+          value={keyInput}
+          onChange={e => setKeyInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSetKey()}
+        />
+        {error && <p style={{ color: "#f87171", fontSize: "0.8rem", margin: "0 0 10px" }}>{error}</p>}
+        <button style={s.btn} onClick={handleSetKey}>Start Learning →</button>
+        <p style={{ color: "#475569", fontSize: "0.72rem", marginTop: 14 }}>
+          Get free key at <a href="https://openrouter.ai" target="_blank" rel="noreferrer" style={{ color: "#4ade80" }}>openrouter.ai</a>
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #0f172a 0%, #0c2340 60%, #0f172a 100%)",
-      fontFamily: "'Inter', 'Segoe UI', sans-serif",
-      display: "flex", flexDirection: "column", alignItems: "center",
-    }}>
-      <div style={{ width: "100%", maxWidth: 760, padding: "24px 20px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+    <div style={s.page}>
+      <div style={{ width: "100%", maxWidth: 720, padding: "18px 16px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <div style={{
-            width: 42, height: 42,
+            width: 40, height: 40, borderRadius: 10, fontSize: 20,
             background: "linear-gradient(135deg, #217346, #2ecc71)",
-            borderRadius: 10, display: "flex", alignItems: "center",
-            justifyContent: "center", fontSize: 22,
-            boxShadow: "0 4px 14px rgba(33,115,70,0.4)",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>📗</div>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 700, color: "#f1f5f9" }}>ExcelCoach</h1>
-            <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b" }}>AI-powered Excel tutor</p>
+            <h1 style={{ margin: 0, color: "#f1f5f9", fontSize: "1.2rem" }}>ExcelCoach</h1>
+            <p style={{ margin: 0, color: "#64748b", fontSize: "0.72rem" }}>AI Excel tutor • Free</p>
           </div>
-          <div style={{
-            marginLeft: "auto",
-            background: "rgba(33,115,70,0.15)",
-            border: "1px solid rgba(33,115,70,0.3)",
-            borderRadius: 20, padding: "4px 12px",
-            fontSize: "0.72rem", color: "#4ade80", fontWeight: 600,
-          }}>● Live</div>
+          <span style={{
+            marginLeft: "auto", background: "rgba(33,115,70,0.15)",
+            border: "1px solid rgba(33,115,70,0.3)", borderRadius: 20,
+            padding: "3px 10px", fontSize: "0.7rem", color: "#4ade80",
+          }}>● Live</span>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, margin: "16px 0 12px" }}>
-          {LESSON_TOPICS.map((topic) => (
-            <button key={topic.label} onClick={() => sendMessage(topic.prompt)} disabled={loading}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+          {TOPICS.map(t => (
+            <button key={t.label} onClick={() => sendMessage(t.prompt)} disabled={loading}
               style={{
                 background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 20, padding: "5px 13px",
-                color: "#cbd5e1", fontSize: "0.76rem", fontWeight: 500,
-                cursor: loading ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", gap: 5,
-                opacity: loading ? 0.5 : 1,
+                borderRadius: 20, padding: "4px 11px",
+                color: "#cbd5e1", fontSize: "0.74rem", cursor: "pointer",
               }}>
-              <span>{topic.icon}</span>{topic.label}
+              {t.icon} {t.label}
             </button>
           ))}
         </div>
       </div>
 
       <div style={{
-        width: "100%", maxWidth: 760, flex: 1,
-        padding: "0 20px", overflowY: "auto",
-        display: "flex", flexDirection: "column", gap: 16,
-        minHeight: 340, maxHeight: "calc(100vh - 280px)",
+        width: "100%", maxWidth: 720, flex: 1,
+        padding: "0 16px", display: "flex",
+        flexDirection: "column", gap: 10,
+        overflowY: "auto", maxHeight: "calc(100vh - 250px)",
       }}>
-        {messages.map((msg, i) => (
+        {messages.map((m, i) => (
           <div key={i} style={{
-            display: "flex",
-            justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-            alignItems: "flex-end", gap: 8,
+            display: "flex", gap: 8, alignItems: "flex-end",
+            justifyContent: m.role === "user" ? "flex-end" : "flex-start",
           }}>
-            {msg.role === "assistant" && (
+            {m.role === "assistant" && (
               <div style={{
-                width: 30, height: 30, flexShrink: 0,
+                width: 26, height: 26, borderRadius: "50%", fontSize: 12, flexShrink: 0,
                 background: "linear-gradient(135deg, #217346, #2ecc71)",
-                borderRadius: "50%", display: "flex",
-                alignItems: "center", justifyContent: "center",
-                fontSize: 14, marginBottom: 2,
+                display: "flex", alignItems: "center", justifyContent: "center",
               }}>📗</div>
             )}
             <div style={{
-              maxWidth: "78%",
-              background: msg.role === "user"
+              maxWidth: "80%", padding: "10px 14px",
+              background: m.role === "user"
                 ? "linear-gradient(135deg, #1d6440, #217346)"
                 : "rgba(255,255,255,0.06)",
-              border: msg.role === "user"
-                ? "1px solid rgba(33,115,70,0.5)"
+              border: m.role === "user"
+                ? "1px solid rgba(33,115,70,0.4)"
                 : "1px solid rgba(255,255,255,0.08)",
-              borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-              padding: "12px 16px",
-              color: msg.role === "user" ? "#f0fdf4" : "#cbd5e1",
-              fontSize: "0.9rem", lineHeight: 1.65,
-            }}>
-              {msg.role === "assistant" ? formatMessage(msg.content) : msg.content}
-            </div>
+              borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+              color: m.role === "user" ? "#f0fdf4" : "#cbd5e1",
+              fontSize: "0.88rem", lineHeight: 1.6, whiteSpace: "pre-wrap",
+            }}>{m.content}</div>
           </div>
         ))}
         {loading && (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
             <div style={{
-              width: 30, height: 30, flexShrink: 0,
+              width: 26, height: 26, borderRadius: "50%", fontSize: 12,
               background: "linear-gradient(135deg, #217346, #2ecc71)",
-              borderRadius: "50%", display: "flex",
-              alignItems: "center", justifyContent: "center", fontSize: 14,
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}>📗</div>
             <div style={{
               background: "rgba(255,255,255,0.06)",
               border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "18px 18px 18px 4px",
-              padding: "14px 18px", display: "flex", gap: 5, alignItems: "center",
+              borderRadius: "16px 16px 16px 4px",
+              padding: "12px 16px", display: "flex", gap: 4,
             }}>
-              {[0, 1, 2].map(d => (
+              {[0,1,2].map(d => (
                 <div key={d} style={{
-                  width: 7, height: 7, borderRadius: "50%",
-                  background: "#4ade80", animation: "bounce 1.2s infinite",
-                  animationDelay: `${d * 0.2}s`,
-                }} />
+                  width: 6, height: 6, borderRadius: "50%", background: "#4ade80",
+                  animation: "bounce 1.2s infinite", animationDelay: `${d*0.2}s`,
+                }}/>
               ))}
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
+        <div ref={bottomRef}/>
       </div>
 
-      <div style={{ width: "100%", maxWidth: 760, padding: "14px 20px 24px" }}>
+      <div style={{ width: "100%", maxWidth: 720, padding: "10px 16px 18px" }}>
         <div style={{
-          display: "flex", gap: 10,
+          display: "flex", gap: 8,
           background: "rgba(255,255,255,0.06)",
           border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 14, padding: "8px 8px 8px 16px",
+          borderRadius: 12, padding: "7px 7px 7px 14px",
         }}>
-          <textarea
-            ref={inputRef} value={input}
+          <input
+            value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about a formula, function, or Excel tip..."
-            disabled={loading} rows={1}
+            onKeyDown={e => e.key === "Enter" && sendMessage(input)}
+            placeholder="Ask about any Excel formula or tip..."
+            disabled={loading}
             style={{
               flex: 1, background: "transparent", border: "none",
-              outline: "none", color: "#f1f5f9", fontSize: "0.9rem",
-              resize: "none", lineHeight: 1.5, padding: "6px 0",
-              fontFamily: "inherit",
-            }}
-            onInput={e => {
-              e.target.style.height = "auto";
-              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+              outline: "none", color: "#f1f5f9", fontSize: "0.88rem",
             }}
           />
           <button onClick={() => sendMessage(input)}
             disabled={loading || !input.trim()}
             style={{
-              width: 40, height: 40, borderRadius: 10,
+              width: 36, height: 36, borderRadius: 8, border: "none",
               background: input.trim() && !loading
                 ? "linear-gradient(135deg, #217346, #2ecc71)"
                 : "rgba(255,255,255,0.08)",
-              border: "none",
-              cursor: input.trim() && !loading ? "pointer" : "not-allowed",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 17, flexShrink: 0, alignSelf: "flex-end", marginBottom: 1,
-            }}>
-            {loading ? "⏳" : "➤"}
-          </button>
+              color: "#fff", fontSize: 15, cursor: "pointer",
+            }}>➤</button>
         </div>
-        <p style={{ textAlign: "center", color: "#334155", fontSize: "0.7rem", margin: "8px 0 0" }}>
-          Press Enter to send · Shift+Enter for new line
-        </p>
       </div>
-
       <style>{`
         @keyframes bounce {
-          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-6px); opacity: 1; }
+          0%,60%,100%{transform:translateY(0);opacity:0.4}
+          30%{transform:translateY(-5px);opacity:1}
         }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-        textarea::placeholder { color: #475569; }
       `}</style>
     </div>
   );
-}
+            }
