@@ -11,7 +11,7 @@ You help users with:
 
 Response style:
 - Be concise but thorough. Use examples with real cell references (e.g., =SUM(A1:A10)).
-- When showing formulas, wrap them in backticks like \`=VLOOKUP(A2,B:C,2,0)\`
+- When showing formulas, wrap them in backticks like =VLOOKUP(A2,B:C,2,0)
 - Use numbered steps for multi-step processes
 - Always offer a quick example when explaining a formula
 - End with a tip or a follow-up question to keep learning going
@@ -73,11 +73,11 @@ export default function App() {
   }, [messages, loading]);
 
   function handleSetApiKey() {
-    if (apiKeyInput.trim().startsWith("sk-ant-")) {
+    if (apiKeyInput.trim().startsWith("gsk_")) {
       setApiKey(apiKeyInput.trim());
       setApiKeySet(true);
     } else {
-      alert("Invalid API key. It should start with sk-ant-");
+      alert("Invalid API key. It should start with gsk_");
     }
   }
 
@@ -89,24 +89,24 @@ export default function App() {
     setLoading(true);
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
+          "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
+          model: "llama3-70b-8192",
           max_tokens: 1000,
-          system: SYSTEM_PROMPT,
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...newMessages.map((m) => ({ role: m.role, content: m.content })),
+          ],
         }),
       });
 
       const data = await response.json();
-      const reply = data.content?.map((c) => c.text || "").join("\n") || "Sorry, I couldn't get a response.";
+      const reply = data.choices?.[0]?.message?.content || "Sorry, I couldn't get a response.";
       setMessages([...newMessages, { role: "assistant", content: reply }]);
     } catch (err) {
       setMessages([...newMessages, { role: "assistant", content: "⚠️ Something went wrong. Check your API key and try again." }]);
@@ -142,11 +142,11 @@ export default function App() {
             ExcelCoach
           </h1>
           <p style={{ color: "#64748b", fontSize: "0.9rem", margin: "0 0 28px" }}>
-            Enter your Anthropic API key to start learning Excel with AI
+            Enter your Groq API key to start learning Excel with AI — free!
           </p>
           <input
             type="password"
-            placeholder="sk-ant-..."
+            placeholder="gsk_..."
             value={apiKeyInput}
             onChange={e => setApiKeyInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSetApiKey()}
@@ -171,8 +171,8 @@ export default function App() {
           </button>
           <p style={{ color: "#475569", fontSize: "0.75rem", marginTop: 16 }}>
             Get a free API key at{" "}
-            <a href="https://console.anthropic.com" target="_blank" rel="noreferrer"
-              style={{ color: "#4ade80" }}>console.anthropic.com</a>
+            <a href="https://console.groq.com" target="_blank" rel="noreferrer"
+              style={{ color: "#4ade80" }}>console.groq.com</a>
           </p>
         </div>
       </div>
