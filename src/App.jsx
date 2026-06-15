@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+dj import { useState, useRef, useEffect } from "react";
 
 const SYSTEM_PROMPT = `You are ExcelCoach, a friendly Excel tutor. Teach Excel clearly with practical examples and step-by-step instructions.`;
 
@@ -52,7 +52,7 @@ export default function App() {
           "X-Title": "ExcelCoach",
         },
         body: JSON.stringify({
-          model: "mistralai/mistral-small-3.1-24b-instruct:free",
+          model: "meta-llama/llama-4-scout:free",
           max_tokens: 800,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
