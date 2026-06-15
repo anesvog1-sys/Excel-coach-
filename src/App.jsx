@@ -73,7 +73,7 @@ export default function App() {
   }, [messages, loading]);
 
   function handleSetApiKey() {
-    if (apiKeyInput.trim().startsWith("gsk_")) {
+    if (apiKeyInput.trim().startsWith("sk-or-")) {
       setApiKey(apiKeyInput.trim());
       setApiKeySet(true);
     } else {
@@ -89,14 +89,15 @@ export default function App() {
     setLoading(true);
 
     try {
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
+"HTTP-Referer": "https://excel-coach.vercel.app",
         },
         body: JSON.stringify({
-          model: "llama3-70b-8192",
+          model: "meta-llama/llama-3-70b-instruct:free",
           max_tokens: 1000,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
